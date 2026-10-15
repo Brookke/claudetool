@@ -115,37 +115,43 @@ func handleBackend101(in *Input) (*Output, error) {
 
 	// Rule 5: proto struct literal with fields must not be single-line.
 	// Rule 6: map literal with entries must not be single-line.
+	var protoLines, mapLines []string
 	for i, line := range strings.Split(text, "\n") {
 		if reProtoStructLitSingleLine.MatchString(line) {
-			return &Output{
-				Decision: "block",
-				Reason: fmt.Sprintf(
-					"Backend 101: proto struct literal should be multi-line (line %d: %q). "+
-						"Put each field on its own line, e.g.\n"+
-						"    bizumproto.ConfirmCreditRequest{\n"+
-						"        Payment: confirmReq,\n"+
-						"    }",
-					i+1, strings.TrimSpace(line),
-				),
-			}, nil
+			protoLines = append(protoLines, fmt.Sprintf("    line %d: %s", i+1, strings.TrimSpace(line)))
 		}
 		if reMapLitSingleLine.MatchString(line) {
-			return &Output{
-				Decision: "block",
-				Reason: fmt.Sprintf(
-					"Backend 101: map literal should be multi-line (line %d: %q). "+
-						"Put each entry on its own line, e.g.\n"+
-						"    map[string]string{\n"+
-						"        \"decision_code\": decisionCode,\n"+
-						"        \"reason_code\":   reasonCode,\n"+
-						"    }",
-					i+1, strings.TrimSpace(line),
-				),
-			}, nil
+			mapLines = append(mapLines, fmt.Sprintf("    line %d: %s", i+1, strings.TrimSpace(line)))
 		}
 	}
+	if len(protoLines) == 0 && len(mapLines) == 0 {
+		return nil, nil
+	}
 
-	return nil, nil
+	var reason strings.Builder
+	reason.WriteString("Backend 101: struct and map literals should be multi-line. Fix all of these before retrying.\n")
+	if len(protoLines) > 0 {
+		reason.WriteString("\nProto struct literals (put each field on its own line):\n")
+		reason.WriteString(strings.Join(protoLines, "\n"))
+		reason.WriteString("\n  e.g.\n" +
+			"    bizumproto.ConfirmCreditRequest{\n" +
+			"        Payment: confirmReq,\n" +
+			"    }\n")
+	}
+	if len(mapLines) > 0 {
+		reason.WriteString("\nMap literals (put each entry on its own line):\n")
+		reason.WriteString(strings.Join(mapLines, "\n"))
+		reason.WriteString("\n  e.g.\n" +
+			"    map[string]string{\n" +
+			"        \"decision_code\": decisionCode,\n" +
+			"        \"reason_code\":   reasonCode,\n" +
+			"    }\n")
+	}
+
+	return &Output{
+		Decision: "block",
+		Reason:   reason.String(),
+	}, nil
 }
 
 // camelToSnake converts CamelCase to snake_case.

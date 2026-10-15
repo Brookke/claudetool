@@ -154,6 +154,28 @@ func TestBackend101ProtoStructLitSingleLineSend(t *testing.T) {
 	}
 }
 
+func TestBackend101ReportsEverySingleLineLiteral(t *testing.T) {
+	// Fixtures are split across source lines so this file doesn't trip the hook itself.
+	input := makeToolInput("PreToolUse", "Write", WriteInput{
+		FilePath: "/src/service/payment.go",
+		Content: "rsp, err := bizumproto.ConfirmCreditRequest{" +
+			"Payment: confirmReq}.Send(ctx).DecodeResponse()\n" +
+			"other, err := bizumproto.ReadRequest{" +
+			"Id: id}.Send(ctx).DecodeResponse()\n" +
+			`err = terrors.Augment(err, "reading", map[string]string{` +
+			`"id": id})`,
+	})
+	out := runHandlerOutput(t, "backend101", input)
+	if out == nil || out.Decision != "block" {
+		t.Fatalf("want block, got %+v", out)
+	}
+	for _, want := range []string{"line 1:", "line 2:", "line 3:"} {
+		if !strings.Contains(out.Reason, want) {
+			t.Errorf("reason = %q, want mention of %q", out.Reason, want)
+		}
+	}
+}
+
 func TestBackend101ProtoStructLitSingleLineFirehosePublish(t *testing.T) {
 	input := makeToolInput("PreToolUse", "Write", WriteInput{
 		FilePath: "/src/service/publish.go",

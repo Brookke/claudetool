@@ -290,10 +290,14 @@ func runClaudeReview(prompt, model string) (string, error) {
 		"-p",
 		"--model", model,
 		"--settings", "{}",
+		"--setting-sources", "",
 		"--strict-mcp-config",
+		"--no-session-persistence",
+		"--disable-slash-commands",
 		"--disallowed-tools", "Bash Edit Write Read Glob Grep WebFetch WebSearch",
 		"--append-system-prompt", reviewerSystemPrompt,
 	)
+	cmd.Dir = os.TempDir() // so the repo's CLAUDE.md isn't loaded into every review
 	cmd.Env = reviewerEnv()
 	cmd.Stdin = strings.NewReader(prompt)
 	out, err := cmd.Output()
